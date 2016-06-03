@@ -42,7 +42,7 @@ namespace {
   // is considered "undecided" as long as neither side has >275cp advantage.
   // Data was extracted from the CCRL game database with some simple filtering criteria.
 
-  double move_importance(int ply) {
+  double move_importance(double ply) {
 
     const double XScale = 7.64;
     const double XShift = 58.4;
@@ -52,7 +52,7 @@ namespace {
   }
 
   template<TimeType T>
-  int remaining(int myTime, int movesToGo, int ply, int slowMover)
+  int remaining(int myTime, int movesToGo, double ply, int slowMover)
   {
     const double TMaxRatio   = (T == OptimumTime ? 1 : MaxRatio);
     const double TStealRatio = (T == OptimumTime ? 0 : StealRatio);
@@ -81,7 +81,7 @@ namespace {
 ///  inc >  0 && movestogo == 0 means: x basetime + z increment
 ///  inc >  0 && movestogo != 0 means: x moves in y minutes + z increment
 
-void TimeManagement::init(Search::LimitsType& limits, Color us, int ply)
+void TimeManagement::init(Search::LimitsType& limits, Color us, Phase gamePhase)
 {
   int minThinkingTime = Options["Minimum Thinking Time"];
   int moveOverhead    = Options["Move Overhead"];
@@ -107,6 +107,10 @@ void TimeManagement::init(Search::LimitsType& limits, Color us, int ply)
   optimumTime = maximumTime = std::max(limits.time[us], minThinkingTime);
 
   const int MaxMTG = limits.movestogo ? std::min(limits.movestogo, MoveHorizon) : MoveHorizon;
+  
+  const double ratio = 71.4; //inflection point of move importance, but arbitrary
+  
+  double plyEstimate = (ratio * (PHASE_MIDGAME - gamePhase)) / (PHASE_MIDGAME - PHASE_ENDGAME);
 
   // We calculate optimum time usage for different hypothetical "moves to go"-values
   // and choose the minimum of calculated search time values. Usually the greatest
@@ -120,8 +124,8 @@ void TimeManagement::init(Search::LimitsType& limits, Color us, int ply)
 
       hypMyTime = std::max(hypMyTime, 0);
 
-      int t1 = minThinkingTime + remaining<OptimumTime>(hypMyTime, hypMTG, ply, slowMover);
-      int t2 = minThinkingTime + remaining<MaxTime    >(hypMyTime, hypMTG, ply, slowMover);
+      int t1 = minThinkingTime + remaining<OptimumTime>(hypMyTime, hypMTG, plyEstimate, slowMover);
+      int t2 = minThinkingTime + remaining<MaxTime    >(hypMyTime, hypMTG, plyEstimate, slowMover);
 
       optimumTime = std::min(t1, optimumTime);
       maximumTime = std::min(t2, maximumTime);
